@@ -5,6 +5,7 @@
   ],
   "rules": {
     "no-unused-vars": "warn",
+    "valid-typeof": "off",
     "react/prop-types": "off"
   }
 }

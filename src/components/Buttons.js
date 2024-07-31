@@ -1,41 +1,55 @@
-import React from 'react'
-import PropTypes from 'prop-types'
+import React from "react";
+import PropTypes from "prop-types";
 
-import Grid from '@mui/material/Grid'
-import Button from '@mui/material/Button'
+import Grid from "@mui/material/Grid";
+import Button from "@mui/material/Button";
 
 const Buttons = (props) => {
-    return (
-        <Grid container spacing={1} direction='row' justifyContent='space-between' alignItems='flex-start'>
-            <Grid item>
-                <Button
-                    variant='outlined'
-                    color='error'
-                    onClick={props.erase}
-                    disabled={props.disabled}
-                >
-                    Erase
-                </Button>
-            </Grid>
+  return (
+    <Grid
+      container
+      spacing={1}
+      direction="row"
+      justifyContent="space-between"
+      alignItems="flex-start"
+    >
+      <Grid item>
+        <Button
+          variant="outlined"
+          color="error"
+          onClick={props.erase}
+          disabled={props.disabled}
+        >
+          Erase
+        </Button>
+      </Grid>
 
-            <Grid item>
-                <Button
-                    variant='contained'
-                    color='success'
-                    onClick={props.program}
-                    disabled={props.disabled}
-                >
-                    Program
-                </Button>
-            </Grid>
-        </Grid>
-    )
-}
+      <Grid item gap={10}>
+        <Button
+          variant="contained"
+          color="success"
+          onClick={props.program}
+          disabled={props.disabled}
+        >
+          Program
+        </Button>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={props.disconnect}
+          disabled={props.disabled}
+        >
+          Disconnect
+        </Button>
+      </Grid>
+    </Grid>
+  );
+};
 
 Buttons.propTypes = {
-    erase: PropTypes.func,
-    program: PropTypes.func,
-    disabled: PropTypes.bool,
-}
+  erase: PropTypes.func,
+  program: PropTypes.func,
+  disabled: PropTypes.bool,
+};
 
-export default Buttons
+export default Buttons;

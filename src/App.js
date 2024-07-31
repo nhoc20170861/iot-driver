@@ -15,9 +15,13 @@ import Buttons from "./components/Buttons";
 import Settings from "./components/Settings";
 import ConfirmWindow from "./components/ConfirmWindow";
 import Footer from "./components/Footer";
-import ShowListBinary from "./components/ShowListBinary";
-//import fileDownload from "js-file-download";
 import axios from "axios";
+import Container from "@mui/material/Container";
+import BasicTabs from "./components/BasicTabs";
+import TestTool from "TestTool";
+import { ESPLoader, FlashOptions, LoaderOptions, Transport } from "esptool-js";
+import { serial } from "web-serial-polyfill";
+if (!navigator.serial && navigator.usb) navigator.serial = serial;
 
 import {
   connectESP,
@@ -29,16 +33,12 @@ import {
 import { loadSettings, defaultSettings } from "./lib/settings";
 import configs from "configs";
 
-// import { Buffer } from "buffer";
-var previosPercentage = 0;
-async function getBinary(folderName) {
-  const url = configs.WS_BASE_URL + `downloadBinary/${folderName}`;
+async function getBinary(folderName, fileName = "target.bin") {
+  const url = configs.WS_BASE_URL + `downloadBinary/${folderName}/${fileName}`;
   console.log("🚀 ~ getBinary ~ url:", url);
   const response = await axios.get(url, {
-    responseType: "blob", //"arraybuffer",
+    responseType: "blob",
   });
-  // const fileData = Buffer.from(response.data, "binary");
-  // console.log("🚀 ~ getBinary ~ fileData:", fileData);
   return response.data;
 }
 
@@ -54,7 +54,7 @@ const toArrayBuffer = (inputFile) => {
     reader.onload = () => {
       resolve(reader.result);
     };
-    reader.readAsArrayBuffer(inputFile);
+    reader.readAsBinaryString(inputFile);
   });
 };
 
@@ -63,7 +63,7 @@ const App = () => {
   const [connecting, setConnecting] = React.useState(false);
   const [output, setOutput] = React.useState({
     time: new Date(),
-    value: "Click Connect to start\n",
+    value: "...",
   }); // Serial output
   const [espStub, setEspStub] = React.useState(undefined); // ESP flasher stuff
   const [uploads, setUploads] = React.useState([]); // Uploaded Files
@@ -72,9 +72,18 @@ const App = () => {
   const [confirmErase, setConfirmErase] = React.useState(false); // Confirm Erase Window
   const [confirmProgram, setConfirmProgram] = React.useState(false); // Confirm Flash Window
   const [flashing, setFlashing] = React.useState(false); // Enable/Disable buttons
-  const [chipName, setChipName] = React.useState(""); // ESP8266 or ESP32
 
-  const [binaryUpload, setbinaryUpload] = React.useState(""); // Uploaded Files
+  const [espInfo, setEspInfo] = React.useState({
+    device: undefined,
+    transport: undefined,
+    chip: undefined,
+    esploader: undefined,
+  });
+
+  const [binaryUpload, setbinaryUpload] = React.useState({
+    folderBin: "",
+    fileName: "target.bin",
+  }); // Uploaded Files
 
   useEffect(() => {
     setSettings(loadSettings());
@@ -88,23 +97,35 @@ const App = () => {
     });
   };
 
+  const espLoaderTerminal = {
+    clean() {
+      //term.clear();
+    },
+    writeLine(data) {
+      //term.writeln(data);
+      addOutput(data);
+      // console.log(data);
+    },
+    write(data) {
+      //term.write(data);
+    },
+  };
+
   // Connect to ESP & init flasher stuff
   const clickConnect = async () => {
-    if (espStub) {
-      await espStub.disconnect();
-      await espStub.port.close();
-      setEspStub(undefined);
-      return;
+    let newDevice, newTransport, newChip, newEspLoader;
+    if (!espInfo.device) {
+      newDevice = await navigator.serial.requestPort({});
+      newTransport = new Transport(newDevice, true);
     }
 
-    const esploader = await connectESP({
-      log: (...args) => addOutput(`${args[0]}`),
-      debug: (...args) => console.debug(...args),
-      error: (...args) => console.error(...args),
-      baudRate: parseInt(settings.baudRate),
-    });
-
     try {
+      const flashOptions = {
+        transport: newTransport,
+        baudrate: parseInt(settings.baudRate),
+        terminal: espLoaderTerminal,
+      };
+      setConnecting(true);
       toast.info("Connecting...", {
         position: "top-center",
         autoClose: false,
@@ -115,16 +136,15 @@ const App = () => {
         type: toast.TYPE.INFO,
         autoClose: false,
       });
+      newEspLoader = new ESPLoader(flashOptions);
 
-      setConnecting(true);
-
-      await esploader.initialize();
-
-      addOutput(`Connected to ${esploader.chipName}`);
-      addOutput(`MAC Address: ${formatMacAddr(esploader.macAddr())}`);
-
-      const newEspStub = await esploader.runStub();
-
+      newChip = await newEspLoader.main_fn();
+      setEspInfo({
+        device: newDevice,
+        transport: newTransport,
+        chip: newChip,
+        esploader: newEspLoader,
+      });
       setConnected(true);
       toast.update("connecting", {
         render: "Connected 🚀",
@@ -132,285 +152,217 @@ const App = () => {
         autoClose: 3000,
       });
 
-      //console.log(newEspStub)
-
-      newEspStub.port.addEventListener("disconnect", () => {
-        setConnected(false);
-        setEspStub(undefined);
-        toast.warning("Disconnected 💔", {
-          position: "top-center",
-          autoClose: 3000,
-          toastId: "settings",
-        });
-        addOutput(
-          `------------------------------------------------------------`
-        );
-      });
-
-      setEspStub(newEspStub);
-      setUploads(await loadFiles(esploader.chipName));
-      setChipName(esploader.chipName);
-    } catch (err) {
-      const shortErrMsg = `${err}`.replace("Error: ", "");
-
-      toast.update("connecting", {
-        render: shortErrMsg,
-        type: toast.TYPE.ERROR,
-        autoClose: 3000,
-      });
-
-      addOutput(`${err}`);
-
-      await esploader.port.close();
-      await esploader.disconnect();
-    } finally {
-      setConnecting(false);
-    }
-  };
-
-  // Erase firmware on ESP
-  const erase = async () => {
-    setConfirmErase(false);
-    setFlashing(true);
-    toast(`Erasing flash memory. Please wait...`, {
-      position: "top-center",
-      toastId: "erase",
-      autoClose: false,
-    });
-
-    try {
-      const stamp = Date.now();
-
-      addOutput(`Start erasing`);
-      const interval = setInterval(() => {
-        addOutput(`Erasing flash memory. Please wait...`);
-      }, 3000);
-
-      await espStub.eraseFlash();
-
-      clearInterval(interval);
-      addOutput(`Finished. Took ${Date.now() - stamp}ms to erase.`);
-      toast.update("erase", {
-        render: "Finished erasing memory.",
-        type: toast.TYPE.INFO,
-        autoClose: 3000,
-      });
+      // Temporarily broken
+      // await esploader.flashId();
     } catch (e) {
-      addOutput(`ERROR!\n${e}`);
-      toast.update("erase", {
-        render: `ERROR!\n${e}`,
-        type: toast.TYPE.ERROR,
-        autoClose: 3000,
-      });
       console.error(e);
-    } finally {
-      setFlashing(false);
+      addOutput(`Error: ${e.message}`);
     }
-  };
-
-  // Flash Firmware
-  const program = async () => {
-    setConfirmProgram(false);
-    setFlashing(true);
-
-    let success = false;
-
-    for (const file of uploads) {
-      if (!file.fileName || !file.obj) continue;
-      console.log("🚀 ~ program ~ file:", file);
-      success = true;
-
-      toast(`Uploading ${file.fileName.substring(0, 28)}...`, {
-        position: "top-center",
-        progress: 0,
-        toastId: "upload",
-      });
-
-      try {
-        const contents = await toArrayBuffer(file.obj);
-
-        await espStub.flashData(
-          contents,
-          (bytesWritten, totalBytes) => {
-            const progress = bytesWritten / totalBytes;
-            const percentage = Math.floor(progress * 100);
-
-            toast.update("upload", { progress: progress });
-
-            addOutput(`Flashing... ${percentage}%`);
-          },
-          parseInt(file.offset, 16)
-        );
-
-        await sleep(100);
-      } catch (e) {
-        addOutput(`ERROR!`);
-        addOutput(`${e}`);
-        console.error(e);
-      }
-    }
-
-    if (success) {
-      addOutput(`Done!`);
-      addOutput(`To run the new firmware please reset your device.`);
-
-      toast.success("Done! Reset ESP to run new firmware.", {
-        position: "top-center",
-        toastId: "uploaded",
-        autoClose: 3000,
-      });
-    } else {
-      addOutput(`Please add a .bin file`);
-
-      toast.info("Please add a .bin file", {
-        position: "top-center",
-        toastId: "uploaded",
-        autoClose: 3000,
-      });
-    }
-
-    setFlashing(false);
   };
 
   const programOneBinary = async () => {
     setConfirmProgram(false);
     setFlashing(true);
 
-    let success = false;
-
-    toast(`Uploading version ${binaryUpload} ...`, {
+    //  let success = false;
+    console.log("🚀 ~ programOneBinary ~ binaryUpload:", binaryUpload);
+    if (!binaryUpload.folderBin) {
+      toast.error(`Must select version image ...`, {
+        position: "top-center",
+        toastId: "upload_fail",
+        autoClose: 3000,
+      });
+      setFlashing(false);
+      return;
+    }
+    toast(`Uploading version ${binaryUpload.folderBin} ...`, {
       position: "top-center",
       progress: 0,
       toastId: "upload",
     });
 
     try {
-      const fileInfo = await getBinary(binaryUpload);
-      console.log("🚀 ~ programOneBinary ~ fileInfo:", fileInfo);
-      const contents = await toArrayBuffer(fileInfo);
-      console.log("🚀 ~ programOneBinary ~ contents2:", contents);
-      fileInfo["offset"] = "0000";
-      await espStub.flashData(
-        contents,
-        (bytesWritten, totalBytes) => {
-          const progress = bytesWritten / totalBytes;
-          const percentage = Math.floor(progress * 100);
-          if (previosPercentage != percentage) {
-            toast.update("upload", { progress: progress });
-            addOutput(`Flashing... ${percentage}%`);
-            previosPercentage = percentage;
-          }
-
-          if (percentage === 100) {
-            success = true;
-          }
-        },
-        parseInt(fileInfo.offset, 16)
+      const fileInfo = await getBinary(
+        binaryUpload.folderBin,
+        binaryUpload.fileName
       );
 
-      await sleep(100);
+      const contents = await toArrayBuffer(fileInfo);
+      let eraseAll = false;
+      let offset = "";
+      if (binaryUpload.fileName === "target.bin") {
+        eraseAll = true;
+        offset = "0x0000";
+      } else if (binaryUpload.fileName === "firmware.bin") {
+        offset = "0x10000";
+      }
+
+      const newFileArray = [];
+      newFileArray.push({ data: contents, address: parseInt(offset) });
+
+      const flashOptions = {
+        fileArray: newFileArray,
+        flashSize: "keep",
+        eraseAll: eraseAll,
+        compress: true,
+        reportProgress: (fileIndex, written, total) => {
+          const progress = written / total;
+          toast.update("upload", { progress: progress });
+          if (progress >= 100) {
+            addOutput(`Done!`);
+            addOutput(`To run the new firmware please reset your device.`);
+
+            toast.success("Done! Reset ESP to run new firmware.", {
+              position: "top-center",
+              toastId: "uploaded",
+              autoClose: 3000,
+            });
+          }
+        },
+        // calculateMD5Hash: (image) =>
+        //   CryptoJS.MD5(CryptoJS.enc.Latin1.parse(image)),
+      };
+
+      await espInfo.esploader.write_flash(flashOptions);
     } catch (e) {
       addOutput(`ERROR!`);
       addOutput(`${e}`);
       console.error(e);
     }
-
-    if (success) {
-      addOutput(`Done!`);
-      addOutput(`To run the new firmware please reset your device.`);
-
-      toast.success("Done! Reset ESP to run new firmware.", {
-        position: "top-center",
-        toastId: "uploaded",
-        autoClose: 3000,
-      });
-    } else {
-      addOutput(`Please add a .bin file`);
-
-      toast.info("Please add a .bin file", {
-        position: "top-center",
-        toastId: "uploaded",
-        autoClose: 3000,
-      });
-    }
-
     setFlashing(false);
   };
 
+  const eraseButtonOnclick = async () => {
+    setConfirmErase(true);
+    setFlashing(true);
+    try {
+      toast(`Erasing flash memory. Please wait...`, {
+        position: "top-center",
+        toastId: "erase",
+        autoClose: false,
+      });
+      await espInfo.esploader.eraseFlash();
+      toast.update("erase", {
+        render: "Finished erasing memory.",
+        type: toast.TYPE.INFO,
+        autoClose: 3000,
+      });
+    } catch (e) {
+      console.error(e);
+      addOutput(`ERROR!\n${e}`);
+      toast.update("erase", {
+        render: `ERROR!\n${e}`,
+        type: toast.TYPE.ERROR,
+        autoClose: 3000,
+      });
+    } finally {
+      setConfirmErase(false);
+    }
+  };
+
+  const disconnectButtonOnclick = async () => {
+    if (espInfo.transport) {
+      await espInfo.transport.disconnect();
+      setEspInfo({
+        device: undefined,
+        transport: undefined,
+        chip: undefined,
+        esploader: undefined,
+      });
+      setConnected(false);
+      setConnecting(false);
+    }
+  };
   return (
-    <Box sx={{ minWidth: "25rem" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+      }}
+    >
+      {/* Toaster */}
+      <ToastContainer />
       <Header sx={{ mb: "1rem" }} />
-
-      <Grid
-        container
-        spacing={1}
-        direction="column"
-        justifyContent="space-around"
-        alignItems="center"
-        sx={{ minHeight: "calc(100vh - 116px)" }}
-      >
-        <ShowListBinary setbinaryUpload={setbinaryUpload} />
-        {!connected && !connecting && (
-          <Grid item>
-            <Home
-              connect={clickConnect}
-              supported={supported}
-              openSettings={() => setSettingsOpen(true)}
-            />
-          </Grid>
-        )}
-
-        {/* Home Page */}
-        {!connected && connecting && (
-          <Grid item>
-            <Typography variant="h3" component="h2" sx={{ color: "#aaa" }}>
-              Connecting...
-            </Typography>
-          </Grid>
-        )}
-        {/*connected && (
-          <Grid item>
-            <FileList
+      <Grid sx={{ flexGrow: 1 }} container spacing={2}>
+        <Grid item xs={4}>
+          <BasicTabs
+            setbinaryUpload={setbinaryUpload}
+            binaryUpload={binaryUpload}
+          >
+            {/* <FileList
               uploads={uploads}
               setUploads={setUploads}
               chipName={chipName}
-            />
-          </Grid>
-        )*/}
+            /> */}
+          </BasicTabs>
+        </Grid>
 
-        {/* Erase & Program Buttons */}
-        {connected && (
-          <Grid item>
-            <Buttons
-              erase={() => setConfirmErase(true)}
-              program={() => setConfirmProgram(true)}
-              disabled={flashing}
-            />
-          </Grid>
-        )}
+        <Grid item xs={8}>
+          <div
+            style={{
+              display: "flex",
+              padding: "0 24px 0 24px",
+              flexDirection: "column",
+              alignItems: "center",
+            }}
+          >
+            <div style={{ flex: 1, width: "100%" }}>
+              {!connected && !connecting && (
+                <Home
+                  connect={clickConnect}
+                  supported={supported}
+                  openSettings={() => setSettingsOpen(true)}
+                />
+              )}
+              {!connected && connecting && (
+                <Grid item p="0 24px 0 24px">
+                  <Typography
+                    variant="h3"
+                    component="h2"
+                    sx={{ color: "#aaa" }}
+                  >
+                    Connecting...
+                  </Typography>
+                </Grid>
+              )}
 
-        {/* Serial Output */}
-        {supported() && (
-          <Grid item>
-            <Output received={output} />
-          </Grid>
-        )}
+              {/* Erase & Program Buttons */}
+              {connected && (
+                <Grid item p="0 24px 0 24px">
+                  <Buttons
+                    erase={() => setConfirmErase(true)}
+                    program={() => setConfirmProgram(true)}
+                    disconnect={disconnectButtonOnclick}
+                    disabled={flashing}
+                  />
+                </Grid>
+              )}
+            </div>
+            <div style={{ flex: 1, width: "100%" }}>
+              {/* Serial Output */}
+              {supported() && <Output received={output} />}
+            </div>
+          </div>
+        </Grid>
       </Grid>
 
-      {/* Settings Window */}
-      <Settings
-        open={settingsOpen}
-        close={() => setSettingsOpen(false)}
-        setSettings={setSettings}
-        settings={settings}
-        connected={connected}
-      />
+      <Container maxWidth="sm">
+        {/* Settings Window */}
+        <Settings
+          open={settingsOpen}
+          close={() => setSettingsOpen(false)}
+          setSettings={setSettings}
+          settings={settings}
+          connected={connected}
+        />
+      </Container>
 
       {/* Confirm Erase Window */}
       <ConfirmWindow
         open={confirmErase}
         text={"This will erase the memory of your ESP."}
-        onOk={erase}
+        onOk={eraseButtonOnclick}
         onCancel={() => setConfirmErase(false)}
       />
 
@@ -422,12 +374,10 @@ const App = () => {
         onCancel={() => setConfirmProgram(false)}
       />
 
-      {/* Toaster */}
-      <ToastContainer />
-
       {/* Footer */}
-      <Footer sx={{ mt: "auto" }} />
-    </Box>
+      {/* <Footer sx={{ mt: "auto" }} /> */}
+      {/* <TestTool></TestTool> */}
+    </div>
   );
 };
 
