@@ -1,23 +1,7 @@
-import React, { useEffect } from "react";
+import React from "react";
 
-import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-
-import Box from "@mui/material/Box";
-import Grid from "@mui/material/Grid";
-import Typography from "@mui/material/Typography";
-
-import Header from "./components/Header";
-import Home from "./components/Home";
-import FileList from "./components/FileList";
-import Output from "./components/Output";
-import Buttons from "./components/Buttons";
-import Settings from "./components/Settings";
-import ConfirmWindow from "./components/ConfirmWindow";
-import Footer from "./components/Footer";
 import axios from "axios";
-import Container from "@mui/material/Container";
-import BasicTabs from "./components/BasicTabs";
 import { Terminal } from "@xterm/xterm";
 import { ESPLoader, FlashOptions, LoaderOptions, Transport } from "esptool-js";
 import { serial } from "web-serial-polyfill";

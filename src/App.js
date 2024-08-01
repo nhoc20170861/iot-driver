@@ -3,24 +3,22 @@ import React, { useEffect } from "react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-import Box from "@mui/material/Box";
 import Grid from "@mui/material/Grid";
 import Typography from "@mui/material/Typography";
 
 import Header from "./components/Header";
 import Home from "./components/Home";
 import FileList from "./components/FileList";
-import Output from "./components/Output";
 import Buttons from "./components/Buttons";
 import Settings from "./components/Settings";
 import ConfirmWindow from "./components/ConfirmWindow";
-import Footer from "./components/Footer";
 import axios from "axios";
 import Container from "@mui/material/Container";
 import BasicTabs from "./components/BasicTabs";
 import TestTool from "TestTool";
-import { ESPLoader, FlashOptions, LoaderOptions, Transport } from "esptool-js";
+import { ESPLoader, Transport } from "esptool-js";
 import { serial } from "web-serial-polyfill";
+import { Terminal } from "@xterm/xterm";
 if (!navigator.serial && navigator.usb) navigator.serial = serial;
 
 import {
@@ -32,6 +30,11 @@ import {
 } from "./lib/esp";
 import { loadSettings, defaultSettings } from "./lib/settings";
 import configs from "configs";
+import "../node_modules/@xterm/xterm/css/xterm.css";
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 async function getBinary(folderName, fileName = "target.bin") {
   const url = configs.WS_BASE_URL + `downloadBinary/${folderName}/${fileName}`;
@@ -58,6 +61,12 @@ const toArrayBuffer = (inputFile) => {
   });
 };
 
+const xTerm = new Terminal({ rows: 20 });
+xTerm.options = {
+  lineHeight: 1,
+  fontFamily: "Courier New",
+  //logLevel: "debug",
+};
 const App = () => {
   const [connected, setConnected] = React.useState(false); // Connection status
   const [connecting, setConnecting] = React.useState(false);
@@ -97,21 +106,41 @@ const App = () => {
     });
   };
 
+  React.useEffect(() => {
+    const terminal = document.getElementById("terminal");
+    xTerm.open(terminal);
+  }, []);
+
   const espLoaderTerminal = {
     clean() {
-      //term.clear();
+      xTerm.clear();
     },
     writeLine(data) {
-      //term.writeln(data);
+      xTerm.writeln(data);
       addOutput(data);
       // console.log(data);
     },
     write(data) {
-      //term.write(data);
+      xTerm.write(data);
     },
   };
 
   // Connect to ESP & init flasher stuff
+
+  navigator.serial.addEventListener("disconnect", async (event) => {
+    console.log("🚀 ~ navigator.serial.addEventListener ~ disconnect:");
+    if (espInfo.transport) {
+      setEspInfo({
+        device: undefined,
+        transport: undefined,
+        chip: undefined,
+        esploader: undefined,
+      });
+      setConnected(false);
+      setConnecting(false);
+      xTerm.clear();
+    }
+  });
   const clickConnect = async () => {
     let newDevice, newTransport, newChip, newEspLoader;
     if (!espInfo.device) {
@@ -161,6 +190,7 @@ const App = () => {
   };
 
   const programOneBinary = async () => {
+    xTerm.clear();
     setConfirmProgram(false);
     setFlashing(true);
 
@@ -233,7 +263,7 @@ const App = () => {
   };
 
   const eraseButtonOnclick = async () => {
-    setConfirmErase(true);
+    setConfirmErase(false);
     setFlashing(true);
     try {
       toast(`Erasing flash memory. Please wait...`, {
@@ -241,12 +271,14 @@ const App = () => {
         toastId: "erase",
         autoClose: false,
       });
-      await espInfo.esploader.eraseFlash();
+      await espInfo.esploader.erase_flash();
       toast.update("erase", {
         render: "Finished erasing memory.",
         type: toast.TYPE.INFO,
-        autoClose: 3000,
+        autoClose: 2000,
       });
+      await delay(2000);
+      disconnectButtonOnclick();
     } catch (e) {
       console.error(e);
       addOutput(`ERROR!\n${e}`);
@@ -271,6 +303,7 @@ const App = () => {
       });
       setConnected(false);
       setConnecting(false);
+      xTerm.clear();
     }
   };
   return (
@@ -341,7 +374,9 @@ const App = () => {
             </div>
             <div style={{ flex: 1, width: "100%" }}>
               {/* Serial Output */}
-              {supported() && <Output received={output} />}
+              {supported() && (
+                <div id="terminal" style={{ marginTop: "10px" }}></div>
+              )}
             </div>
           </div>
         </Grid>
@@ -374,8 +409,6 @@ const App = () => {
         onCancel={() => setConfirmProgram(false)}
       />
 
-      {/* Footer */}
-      {/* <Footer sx={{ mt: "auto" }} /> */}
       {/* <TestTool></TestTool> */}
     </div>
   );

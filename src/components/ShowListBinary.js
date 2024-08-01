@@ -8,7 +8,6 @@ import ListItemText from "@mui/material/ListItemText";
 import Divider from "@mui/material/Divider";
 import PermMedia from "@mui/icons-material/PermMedia";
 import CircularProgress from "@mui/material/CircularProgress";
-import Typography from "@mui/material/Typography";
 import styles from "./Output.module.css";
 import { getListEsp32Binary } from "network/ApiAxios";
 
