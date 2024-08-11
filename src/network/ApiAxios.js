@@ -121,5 +121,5 @@ export const register = async (
   });
 
 // Api to get version image
-export const getListEsp32Binary = async () =>
-  await instance.get(`getListEsp32Binary`, {});
+export const getListEsp32Binary = async (espVersion) =>
+  await instance.get(`getListEsp32Binary/${espVersion}`, {});

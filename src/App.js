@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, createContext } from "react";
 
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -14,11 +14,18 @@ import Settings from "./components/Settings";
 import ConfirmWindow from "./components/ConfirmWindow";
 import axios from "axios";
 import Container from "@mui/material/Container";
+import Avatar from "@mui/material/Avatar";
+import Button from "@mui/material/Button";
+import Badge from "@mui/material/Badge";
 import BasicTabs from "./components/BasicTabs";
-import TestTool from "TestTool";
+import Stack from "@mui/material/Stack";
+import { styled } from "@mui/material/styles";
+
 import { ESPLoader, Transport } from "esptool-js";
 import { serial } from "web-serial-polyfill";
 import { Terminal } from "@xterm/xterm";
+
+import { Card, CardHeader, CardBody, Row, Col, Media } from "reactstrap";
 if (!navigator.serial && navigator.usb) navigator.serial = serial;
 
 import {
@@ -36,10 +43,11 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function getBinary(folderName, fileName = "target.bin") {
-  const url = configs.WS_BASE_URL + `downloadBinary/${folderName}/${fileName}`;
-  console.log("🚀 ~ getBinary ~ url:", url);
-  const response = await axios.get(url, {
+async function getBinary(esp32Version, folderName, fileName = "target.bin") {
+  const url = configs.WS_BASE_URL + `downloadBinary`;
+  const data = { esp32Version, folderName, fileName };
+  console.log("🚀 ~ getBinary ~ url:", data);
+  const response = await axios.post(url, data, {
     responseType: "blob",
   });
   return response.data;
@@ -67,20 +75,64 @@ xTerm.options = {
   fontFamily: "Courier New",
   //logLevel: "debug",
 };
+
+const StyledBadge = styled(Badge)(({ theme }) => {
+  console.log("🚀 ~ file: index.js:41 ~ theme:", theme.palette);
+  const style = {
+    "& .MuiBadge-badge": {
+      boxShadow: `0 0 0 2px ${theme.palette.background.paper}`,
+      "&::after": {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        borderRadius: "50%",
+        animation: "ripple 1.2s infinite ease-in-out",
+        border: "1px solid currentColor",
+        content: '""',
+      },
+    },
+    "@keyframes ripple": {
+      "0%": {
+        transform: "scale(.8)",
+        opacity: 1,
+      },
+      "100%": {
+        transform: "scale(2.4)",
+        opacity: 0,
+      },
+    },
+  };
+  return style;
+});
+
+export const RosContext = createContext("RosHandle");
 const App = () => {
   const [connected, setConnected] = React.useState(false); // Connection status
   const [connecting, setConnecting] = React.useState(false);
-  const [output, setOutput] = React.useState({
-    time: new Date(),
-    value: "...",
-  }); // Serial output
-  const [espStub, setEspStub] = React.useState(undefined); // ESP flasher stuff
-  const [uploads, setUploads] = React.useState([]); // Uploaded Files
+
   const [settingsOpen, setSettingsOpen] = React.useState(false); // Settings Window
   const [settings, setSettings] = React.useState({ ...defaultSettings }); // Settings
   const [confirmErase, setConfirmErase] = React.useState(false); // Confirm Erase Window
   const [confirmProgram, setConfirmProgram] = React.useState(false); // Confirm Flash Window
   const [flashing, setFlashing] = React.useState(false); // Enable/Disable buttons
+  const [esp32Version, setEsp32Version] = React.useState(""); // Enable/Disable buttons
+
+  const [espList, setEspList] = React.useState({
+    "Voice Box": {
+      type: "esp32",
+      isConnected: true,
+      srcImage:
+        "https://image.made-in-china.com/2f0j00DZWqyScFShbf/4G-Static-Qr-Payment-Soundbox-Higher-Volume-Broadcast-with-POS-Payment-Z10-a.jpg",
+    },
+    Paybox: {
+      type: "esp32-s3",
+      isConnected: true,
+      srcImage:
+        "https://vietqr.com/wp-content/uploads/2023/07/thoa-thuan-su-dung-vietqr.png",
+    },
+  });
 
   const [espInfo, setEspInfo] = React.useState({
     device: undefined,
@@ -98,14 +150,6 @@ const App = () => {
     setSettings(loadSettings());
   }, []);
 
-  // Add new message to output
-  const addOutput = (msg) => {
-    setOutput({
-      time: new Date(),
-      value: `${msg}\n`,
-    });
-  };
-
   React.useEffect(() => {
     const terminal = document.getElementById("terminal");
     xTerm.open(terminal);
@@ -117,12 +161,20 @@ const App = () => {
     },
     writeLine(data) {
       xTerm.writeln(data);
-      addOutput(data);
       // console.log(data);
     },
     write(data) {
       xTerm.write(data);
     },
+  };
+
+  const handleBtnSlectEspVersion = (key) => {
+    const url = location.pathname + key;
+    console.log(
+      "🚀 ~ file: index.js:107 ~ handleBtnSlectEspVersion ~ url:",
+      url
+    );
+    setEsp32Version(key);
   };
 
   // Connect to ESP & init flasher stuff
@@ -185,7 +237,6 @@ const App = () => {
       // await esploader.flashId();
     } catch (e) {
       console.error(e);
-      addOutput(`Error: ${e.message}`);
     }
   };
 
@@ -213,6 +264,7 @@ const App = () => {
 
     try {
       const fileInfo = await getBinary(
+        esp32Version,
         binaryUpload.folderBin,
         binaryUpload.fileName
       );
@@ -239,9 +291,6 @@ const App = () => {
           const progress = written / total;
           toast.update("upload", { progress: progress });
           if (progress >= 100) {
-            addOutput(`Done!`);
-            addOutput(`To run the new firmware please reset your device.`);
-
             toast.success("Done! Reset ESP to run new firmware.", {
               position: "top-center",
               toastId: "uploaded",
@@ -255,8 +304,6 @@ const App = () => {
 
       await espInfo.esploader.write_flash(flashOptions);
     } catch (e) {
-      addOutput(`ERROR!`);
-      addOutput(`${e}`);
       console.error(e);
     }
     setFlashing(false);
@@ -281,7 +328,6 @@ const App = () => {
       disconnectButtonOnclick();
     } catch (e) {
       console.error(e);
-      addOutput(`ERROR!\n${e}`);
       toast.update("erase", {
         render: `ERROR!\n${e}`,
         type: toast.TYPE.ERROR,
@@ -319,16 +365,97 @@ const App = () => {
       <Header sx={{ mb: "1rem" }} />
       <Grid sx={{ flexGrow: 1 }} container spacing={2}>
         <Grid item xs={4}>
-          <BasicTabs
-            setbinaryUpload={setbinaryUpload}
-            binaryUpload={binaryUpload}
-          >
-            {/* <FileList
-              uploads={uploads}
-              setUploads={setUploads}
-              chipName={chipName}
-            /> */}
-          </BasicTabs>
+          {esp32Version != "" ? (
+            <BasicTabs
+              setbinaryUpload={setbinaryUpload}
+              binaryUpload={binaryUpload}
+              esp32Version={esp32Version}
+              setEsp32Version={setEsp32Version}
+            ></BasicTabs>
+          ) : (
+            <Card className="shadow">
+              <CardHeader className="bg-transparent">
+                <Typography
+                  variant="h5"
+                  component="h5"
+                  sx={{ color: "black", paddingLeft: "5px" }}
+                >
+                  Các phiên bản sản phẩm
+                </Typography>
+              </CardHeader>
+              <CardBody>
+                <Grid
+                  container
+                  rowSpacing={1}
+                  direction="column"
+                  justifyContent="flex-start"
+                  alignItems="center"
+                >
+                  {Object.keys(espList).map((key, index) => {
+                    return (
+                      <Grid
+                        item
+                        xs={12}
+                        key={index}
+                        style={{ width: "100%", padding: "8px" }}
+                      >
+                        <Button
+                          variant="outlined"
+                          fullWidth
+                          onClick={(e) =>
+                            handleBtnSlectEspVersion(espList[key].type)
+                          }
+                        >
+                          <Stack
+                            style={{
+                              display: "flex",
+                              width: "100%",
+                              flexDirection: "row",
+                              alignItems: "center",
+                              justifyContent: "flex-start",
+                            }}
+                          >
+                            <div
+                              style={{
+                                flex: 1,
+                              }}
+                            >
+                              <StyledBadge
+                                overlap="circular"
+                                anchorOrigin={{
+                                  vertical: "bottom",
+                                  horizontal: "right",
+                                }}
+                                color={
+                                  espList[key].isConnected ? "success" : "error"
+                                }
+                                variant="dot"
+                              >
+                                <Avatar
+                                  alt={key}
+                                  src={espList[key].srcImage}
+                                  sx={{ width: 50, height: 50 }}
+                                />
+                              </StyledBadge>
+                            </div>
+
+                            <span
+                              style={{
+                                flex: 2,
+                                display: "flex",
+                              }}
+                            >
+                              {key + " - " + espList[key].type}
+                            </span>
+                          </Stack>
+                        </Button>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+              </CardBody>
+            </Card>
+          )}
         </Grid>
 
         <Grid item xs={8}>

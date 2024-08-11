@@ -64,3 +64,8 @@
   font-family: Roboto Mono, monospace;
   font-weight: 300;
 }
+.button__background {
+  background-color: #f7fafc;
+  border-color: #f7fafc;
+  box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.08);
+}

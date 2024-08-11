@@ -19,7 +19,7 @@ const ShowListBinary = (props) => {
   React.useEffect(() => {
     const fetchData = async () => {
       try {
-        const { data } = await getListEsp32Binary();
+        const { data } = await getListEsp32Binary(props.esp32Version);
         console.log("🚀 ~ fetchData ~ response:", data.binaryEsp32List);
         setListImage(data.binaryEsp32List);
       } catch (error) {

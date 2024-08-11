@@ -5,7 +5,9 @@ import Tab from "@mui/material/Tab";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import ShowListBinary from "./ShowListBinary";
-import fileDownload from "js-file-download";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import IconButton from "@mui/material/IconButton";
+import styles from "./Output.module.css";
 function CustomTabPanel(props) {
   const { children, value, index, ...other } = props;
 
@@ -35,7 +37,12 @@ function a11yProps(index) {
   };
 }
 
-export default function BasicTabs({ setbinaryUpload, binaryUpload }) {
+export default function BasicTabs({
+  setbinaryUpload,
+  binaryUpload,
+  setEsp32Version,
+  esp32Version,
+}) {
   const [value, setValue] = React.useState(0);
 
   const handleChange = (event, newValue) => {
@@ -52,6 +59,24 @@ export default function BasicTabs({ setbinaryUpload, binaryUpload }) {
   return (
     <Box sx={{ width: "100%" }}>
       <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
+        <div
+          style={{
+            position: "absolute",
+            left: 50,
+            top: 150,
+          }}
+        >
+          <IconButton
+            color="secondary"
+            aria-label="show ros monit or"
+            onClick={() => {
+              setEsp32Version("");
+            }}
+            className={styles.button__background}
+          >
+            <ArrowBackIcon></ArrowBackIcon>
+          </IconButton>
+        </div>
         <Tabs
           value={value}
           onChange={handleChange}
@@ -62,45 +87,28 @@ export default function BasicTabs({ setbinaryUpload, binaryUpload }) {
           <Tab label="Flash Only Firmware" {...a11yProps(1)} />
         </Tabs>
       </Box>
-
-      <CustomTabPanel value={value} index={0}>
-        <Typography
-          sx={{ mt: 0, mb: 2 }}
-          variant="h6"
-          component="div"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          Danh sách các version
-        </Typography>
-        <ShowListBinary
-          setbinaryUpload={setbinaryUpload}
-          binaryUpload={binaryUpload}
-          currTab={value}
-        />
-      </CustomTabPanel>
-      <CustomTabPanel value={value} index={1}>
-        <Typography
-          sx={{ mt: 0, mb: 2 }}
-          variant="h6"
-          component="div"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          Danh sách các version
-        </Typography>
-        <ShowListBinary
-          setbinaryUpload={setbinaryUpload}
-          binaryUpload={binaryUpload}
-          currTab={value}
-        />
-      </CustomTabPanel>
+      {[0, 1].map((key, index) => (
+        <CustomTabPanel value={value} index={index} key={index}>
+          <Typography
+            sx={{ mt: 0, mb: 2 }}
+            variant="h6"
+            component="div"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            Danh sách các version
+          </Typography>
+          <ShowListBinary
+            setbinaryUpload={setbinaryUpload}
+            binaryUpload={binaryUpload}
+            currTab={value}
+            esp32Version={esp32Version}
+          />
+        </CustomTabPanel>
+      ))}
     </Box>
   );
 }
