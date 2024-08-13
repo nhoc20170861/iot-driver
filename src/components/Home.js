@@ -51,13 +51,13 @@ const Home = (props) => {
           </div>
 
           <Alert severity="info" align="left">
-            1. Click on Connect
+            1. Bấm nút CONNECT
             <br />
-            2. Plug in your ESP & select the port
+            2. Cắm mạch ESP và lựa chọn cổng COM
             <br />
-            3. Add your .bin & set the address
+            3. Chọn loại sản phẩm và chọn bản Image tương ứng
             <br />
-            4. Click Program to flash it 😊
+            4. Bấm nút PROGRAM để nạp code mới vào mạch 😊
             <br />
           </Alert>
         </Box>
