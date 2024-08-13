@@ -119,20 +119,22 @@ const App = () => {
   const [flashing, setFlashing] = React.useState(false); // Enable/Disable buttons
   const [esp32Version, setEsp32Version] = React.useState(""); // Enable/Disable buttons
 
-  const [espList, setEspList] = React.useState({
-    "Voice Box": {
-      type: "esp32",
+  const [deviceList, setDeviceList] = React.useState([
+    {
+      deviceName: "Voice Box",
+      chipType: "esp32",
       isConnected: true,
       srcImage:
         "https://image.made-in-china.com/2f0j00DZWqyScFShbf/4G-Static-Qr-Payment-Soundbox-Higher-Volume-Broadcast-with-POS-Payment-Z10-a.jpg",
     },
-    Paybox: {
-      type: "esp32-s3",
+    {
+      deviceName: "Pay Box",
+      chipType: "esp32-s3",
       isConnected: true,
       srcImage:
         "https://vietqr.com/wp-content/uploads/2023/07/thoa-thuan-su-dung-vietqr.png",
     },
-  });
+  ]);
 
   const [espInfo, setEspInfo] = React.useState({
     device: undefined,
@@ -391,7 +393,7 @@ const App = () => {
                   justifyContent="flex-start"
                   alignItems="center"
                 >
-                  {Object.keys(espList).map((key, index) => {
+                  {deviceList.map((device, index) => {
                     return (
                       <Grid
                         item
@@ -403,7 +405,7 @@ const App = () => {
                           variant="outlined"
                           fullWidth
                           onClick={(e) =>
-                            handleBtnSlectEspVersion(espList[key].type)
+                            handleBtnSlectEspVersion(device.chipType)
                           }
                         >
                           <Stack
@@ -426,14 +428,12 @@ const App = () => {
                                   vertical: "bottom",
                                   horizontal: "right",
                                 }}
-                                color={
-                                  espList[key].isConnected ? "success" : "error"
-                                }
+                                color={device.isConnected ? "success" : "error"}
                                 variant="dot"
                               >
                                 <Avatar
-                                  alt={key}
-                                  src={espList[key].srcImage}
+                                  alt={index}
+                                  src={device.srcImage}
                                   sx={{ width: 50, height: 50 }}
                                 />
                               </StyledBadge>
@@ -445,7 +445,7 @@ const App = () => {
                                 display: "flex",
                               }}
                             >
-                              {key + " - " + espList[key].type}
+                              {device.deviceName + " (" + device.chipType + ")"}
                             </span>
                           </Stack>
                         </Button>

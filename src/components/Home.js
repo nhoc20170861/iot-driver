@@ -51,7 +51,7 @@ const Home = (props) => {
           </div>
 
           <Alert severity="info" align="left">
-            1. Bấm nút CONNECT
+            1. Bấm nút CONNECT để kết nối
             <br />
             2. Cắm mạch ESP và lựa chọn cổng COM
             <br />
