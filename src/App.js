@@ -73,7 +73,7 @@ const xTerm = new Terminal({ rows: 20 });
 xTerm.options = {
   lineHeight: 1,
   fontFamily: "Courier New",
-  //logLevel: "debug",
+  logLevel: "debug",
 };
 
 const StyledBadge = styled(Badge)(({ theme }) => {
@@ -292,7 +292,7 @@ const App = () => {
         reportProgress: (fileIndex, written, total) => {
           const progress = written / total;
           toast.update("upload", { progress: progress });
-          if (progress >= 100) {
+          if (progress >= 1) {
             toast.success("Done! Reset ESP to run new firmware.", {
               position: "top-center",
               toastId: "uploaded",
