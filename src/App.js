@@ -276,11 +276,18 @@ const App = () => {
       let offset = "";
       if (binaryUpload.fileName === "target.bin") {
         eraseAll = true;
+        console.log("🚀 ~ programOneBinary ~ eraseAll:", eraseAll);
         offset = "0x0000";
         toast.warn(`Waiting to Erasing flash before flashing all...`, {
           position: "top-center",
           toastId: "notify_erasing",
-          autoClose: 3000,
+          autoClose: 4000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "light",
         });
       } else if (binaryUpload.fileName === "firmware.bin") {
         offset = "0x10000";
@@ -341,7 +348,7 @@ const App = () => {
         autoClose: 3000,
       });
     } finally {
-      setConfirmErase(false);
+      setFlashing(false);
     }
   };
 
@@ -540,8 +547,6 @@ const App = () => {
         onOk={programOneBinary}
         onCancel={() => setConfirmProgram(false)}
       />
-
-      {/* <TestTool></TestTool> */}
     </div>
   );
 };
