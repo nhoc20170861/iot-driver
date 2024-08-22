@@ -221,7 +221,7 @@ const App = () => {
       });
       newEspLoader = new ESPLoader(flashOptions);
 
-      newChip = await newEspLoader.main_fn();
+      newChip = await newEspLoader.main();
       setEspInfo({
         device: newDevice,
         transport: newTransport,
@@ -277,6 +277,11 @@ const App = () => {
       if (binaryUpload.fileName === "target.bin") {
         eraseAll = true;
         offset = "0x0000";
+        toast.warn(`Waiting to Erasing flash before flashing all...`, {
+          position: "top-center",
+          toastId: "notify_erasing",
+          autoClose: 3000,
+        });
       } else if (binaryUpload.fileName === "firmware.bin") {
         offset = "0x10000";
       }
@@ -304,7 +309,7 @@ const App = () => {
         //   CryptoJS.MD5(CryptoJS.enc.Latin1.parse(image)),
       };
 
-      await espInfo.esploader.write_flash(flashOptions);
+      await espInfo.esploader.writeFlash(flashOptions);
     } catch (e) {
       console.error(e);
     }
@@ -315,18 +320,18 @@ const App = () => {
     setConfirmErase(false);
     setFlashing(true);
     try {
-      toast(`Erasing flash memory. Please wait...`, {
+      toast.warning(`Erasing flash memory. Please wait...`, {
         position: "top-center",
-        toastId: "erase",
+        toastId: "erase_flash",
         autoClose: false,
       });
-      await espInfo.esploader.erase_flash();
-      toast.update("erase", {
+      await espInfo.esploader.eraseFlash();
+      toast.update("erase_flash", {
         render: "Finished erasing memory.",
-        type: toast.TYPE.INFO,
+        type: toast.TYPE.SUCCESS,
         autoClose: 2000,
       });
-      await delay(2000);
+      await delay(1000);
       disconnectButtonOnclick();
     } catch (e) {
       console.error(e);
