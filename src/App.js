@@ -43,10 +43,22 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+const resetTransport = async (transport) => {
+  await transport.device.setSignals({
+    dataTerminalReady: false,
+    requestToSend: true,
+  });
+  await delay(250);
+  await transport.device.setSignals({
+    dataTerminalReady: false,
+    requestToSend: false,
+  });
+  await delay(250);
+};
 async function getBinary(esp32Version, folderName, fileName = "target.bin") {
   const url = configs.WS_BASE_URL + `downloadBinary`;
   const data = { esp32Version, folderName, fileName };
-  console.log("🚀 ~ getBinary ~ url:", data);
+
   const response = await axios.post(url, data, {
     responseType: "blob",
   });
@@ -107,7 +119,6 @@ const StyledBadge = styled(Badge)(({ theme }) => {
   return style;
 });
 
-export const RosContext = createContext("RosHandle");
 const App = () => {
   const [connected, setConnected] = React.useState(false); // Connection status
   const [connecting, setConnecting] = React.useState(false);
@@ -172,10 +183,6 @@ const App = () => {
 
   const handleBtnSlectEspVersion = (key) => {
     const url = location.pathname + key;
-    console.log(
-      "🚀 ~ file: index.js:107 ~ handleBtnSlectEspVersion ~ url:",
-      url
-    );
     setEsp32Version(key);
   };
 
@@ -195,18 +202,20 @@ const App = () => {
       xTerm.clear();
     }
   });
+
   const clickConnect = async () => {
     let newDevice, newTransport, newChip, newEspLoader;
-    if (!espInfo.device) {
-      newDevice = await navigator.serial.requestPort({});
-      newTransport = new Transport(newDevice, true);
-    }
 
     try {
+      if (!espInfo.device) {
+        newDevice = await navigator.serial.requestPort({});
+        newTransport = new Transport(newDevice, true);
+      }
       const flashOptions = {
         transport: newTransport,
         baudrate: parseInt(settings.baudRate),
         terminal: espLoaderTerminal,
+        enableTracing: false,
       };
       setConnecting(true);
       toast.info("Connecting...", {
@@ -222,6 +231,9 @@ const App = () => {
       newEspLoader = new ESPLoader(flashOptions);
 
       newChip = await newEspLoader.main();
+      // Temporarily broken
+      await newEspLoader.flashId();
+
       setEspInfo({
         device: newDevice,
         transport: newTransport,
@@ -234,9 +246,6 @@ const App = () => {
         type: toast.TYPE.SUCCESS,
         autoClose: 3000,
       });
-
-      // Temporarily broken
-      // await esploader.flashId();
     } catch (e) {
       console.error(e);
     }
@@ -278,6 +287,7 @@ const App = () => {
         eraseAll = true;
         console.log("🚀 ~ programOneBinary ~ eraseAll:", eraseAll);
         offset = "0x0000";
+
         toast.warn(`Waiting to Erasing flash before flashing all...`, {
           position: "top-center",
           toastId: "notify_erasing",
@@ -289,6 +299,7 @@ const App = () => {
           progress: undefined,
           theme: "light",
         });
+        await espInfo.esploader.eraseFlash();
       } else if (binaryUpload.fileName === "firmware.bin") {
         offset = "0x10000";
       }
@@ -299,7 +310,9 @@ const App = () => {
       const flashOptions = {
         fileArray: newFileArray,
         flashSize: "keep",
-        eraseAll: eraseAll,
+        flashMode: "keep",
+        flashFreq: "keep",
+        eraseAll: false,
         compress: true,
         reportProgress: (fileIndex, written, total) => {
           const progress = written / total;
@@ -317,8 +330,12 @@ const App = () => {
       };
 
       await espInfo.esploader.writeFlash(flashOptions);
+      disconnectButtonOnclick();
     } catch (e) {
       console.error(e);
+      const currTransport = espInfo.transport;
+      await resetTransport(currTransport);
+      await currTransport.disconnect();
     }
     setFlashing(false);
   };
@@ -338,8 +355,9 @@ const App = () => {
         type: toast.TYPE.SUCCESS,
         autoClose: 2000,
       });
+
       await delay(1000);
-      disconnectButtonOnclick();
+      // disconnectButtonOnclick();
     } catch (e) {
       console.error(e);
       toast.update("erase", {
@@ -354,7 +372,10 @@ const App = () => {
 
   const disconnectButtonOnclick = async () => {
     if (espInfo.transport) {
-      await espInfo.transport.disconnect();
+      const currTransport = espInfo.transport;
+      await resetTransport(currTransport);
+      await currTransport.disconnect();
+
       setEspInfo({
         device: undefined,
         transport: undefined,
