@@ -2,7 +2,7 @@ const { REACT_APP_DOMAIN_SERVER, REACT_APP_APP_DOMAIN_NAME } = process.env;
 const doamin_server =
   process.env.NODE_ENV === "production"
     ? REACT_APP_DOMAIN_SERVER
-    : "http://192.168.1.117:3000";
+    : "http://localhost:3000";
 const react_app_domain =
   process.env.NODE_ENV === "production"
     ? REACT_APP_APP_DOMAIN_NAME

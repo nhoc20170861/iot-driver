@@ -34,13 +34,13 @@ const ShowListBinary = (props) => {
   React.useEffect(() => {
     if (selectedIndex !== -1) {
       const infoBinary = { ...props.binaryUpload };
-      infoBinary.folderBin = listImage[selectedIndex].folderBin;
+      infoBinary.folderContain = listImage[selectedIndex].folderContain;
       console.log("🚀 ~ React.useEffect ~ infoBinary:", infoBinary);
       props.setbinaryUpload(infoBinary);
     } else if (props.currTab === 0) {
-      props.setbinaryUpload({ folderBin: "", fileName: "target.bin" });
+      props.setbinaryUpload({ folderContain: "", fileName: "target.bin" });
     } else if (props.currTab === 1) {
-      props.setbinaryUpload({ folderBin: "", fileName: "firmware.bin" });
+      props.setbinaryUpload({ folderContain: "", fileName: "firmware.bin" });
     }
   }, [selectedIndex]);
   const handleListItemClick = (event, index) => {
@@ -55,7 +55,7 @@ const ShowListBinary = (props) => {
         {input.map((item, index) => {
           return (
             <ListItemButton
-              key={`${index}`}
+              key={`${input.length - index}`}
               selected={selectedIndex === index}
               onClick={(event) => handleListItemClick(event, index)}
             >

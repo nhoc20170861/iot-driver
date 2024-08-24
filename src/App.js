@@ -8,7 +8,6 @@ import Typography from "@mui/material/Typography";
 
 import Header from "./components/Header";
 import Home from "./components/Home";
-import FileList from "./components/FileList";
 import Buttons from "./components/Buttons";
 import Settings from "./components/Settings";
 import ConfirmWindow from "./components/ConfirmWindow";
@@ -19,13 +18,17 @@ import Button from "@mui/material/Button";
 import Badge from "@mui/material/Badge";
 import BasicTabs from "./components/BasicTabs";
 import Stack from "@mui/material/Stack";
+import CircularProgress from "@mui/material/CircularProgress";
+
+import { Card, CardHeader, CardBody, Row, Col, Media } from "reactstrap";
+
 import { styled } from "@mui/material/styles";
 
 import { ESPLoader, Transport } from "esptool-js";
 import { serial } from "web-serial-polyfill";
 import { Terminal } from "@xterm/xterm";
+import "../node_modules/@xterm/xterm/css/xterm.css";
 
-import { Card, CardHeader, CardBody, Row, Col, Media } from "reactstrap";
 if (!navigator.serial && navigator.usb) navigator.serial = serial;
 
 import {
@@ -37,7 +40,7 @@ import {
 } from "./lib/esp";
 import { loadSettings, defaultSettings } from "./lib/settings";
 import configs from "configs";
-import "../node_modules/@xterm/xterm/css/xterm.css";
+import { getListDevices, downloadBinary } from "network/ApiAxios";
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -56,13 +59,20 @@ const resetTransport = async (transport) => {
   await delay(250);
 };
 async function getBinary(esp32Version, folderName, fileName = "target.bin") {
-  const url = configs.WS_BASE_URL + `downloadBinary`;
-  const data = { esp32Version, folderName, fileName };
+  const requestBoday = { esp32Version, folderName, fileName };
 
-  const response = await axios.post(url, data, {
-    responseType: "blob",
-  });
-  return response.data;
+  try {
+    const data = await downloadBinary(requestBoday);
+    return data;
+  } catch (error) {
+    console.log("🚀 ~ getBinary ~ error:", error);
+    toast.error(`File not found!!!`, {
+      position: "top-center",
+      toastId: "download_fail",
+      autoClose: 3000,
+    });
+    return null;
+  }
 }
 
 const toArrayBuffer = (inputFile) => {
@@ -89,7 +99,6 @@ xTerm.options = {
 };
 
 const StyledBadge = styled(Badge)(({ theme }) => {
-  console.log("🚀 ~ file: index.js:41 ~ theme:", theme.palette);
   const style = {
     "& .MuiBadge-badge": {
       boxShadow: `0 0 0 2px ${theme.palette.background.paper}`,
@@ -130,22 +139,22 @@ const App = () => {
   const [flashing, setFlashing] = React.useState(false); // Enable/Disable buttons
   const [esp32Version, setEsp32Version] = React.useState(""); // Enable/Disable buttons
 
-  const [deviceList, setDeviceList] = React.useState([
-    {
-      deviceName: "Voice Box",
-      chipType: "esp32",
-      isConnected: true,
-      srcImage:
-        "https://image.made-in-china.com/2f0j00DZWqyScFShbf/4G-Static-Qr-Payment-Soundbox-Higher-Volume-Broadcast-with-POS-Payment-Z10-a.jpg",
-    },
-    {
-      deviceName: "Pay Box",
-      chipType: "esp32-s3",
-      isConnected: true,
-      srcImage:
-        "https://vietqr.com/wp-content/uploads/2023/07/thoa-thuan-su-dung-vietqr.png",
-    },
-  ]);
+  const [loading, setLoading] = React.useState(true);
+  const [deviceList, setDeviceList] = React.useState([]);
+
+  React.useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const { data } = await getListDevices();
+        setDeviceList(data.devices);
+      } catch (error) {
+        console.error(error);
+      }
+      setLoading(false);
+    };
+
+    fetchData();
+  }, []);
 
   const [espInfo, setEspInfo] = React.useState({
     device: undefined,
@@ -155,7 +164,7 @@ const App = () => {
   });
 
   const [binaryUpload, setbinaryUpload] = React.useState({
-    folderBin: "",
+    folderContain: "",
     fileName: "target.bin",
   }); // Uploaded Files
 
@@ -174,7 +183,6 @@ const App = () => {
     },
     writeLine(data) {
       xTerm.writeln(data);
-      // console.log(data);
     },
     write(data) {
       xTerm.write(data);
@@ -258,7 +266,7 @@ const App = () => {
 
     //  let success = false;
     console.log("🚀 ~ programOneBinary ~ binaryUpload:", binaryUpload);
-    if (!binaryUpload.folderBin) {
+    if (!binaryUpload.folderContain) {
       toast.error(`Must select version image ...`, {
         position: "top-center",
         toastId: "upload_fail",
@@ -267,19 +275,20 @@ const App = () => {
       setFlashing(false);
       return;
     }
-    toast(`Uploading version ${binaryUpload.folderBin} ...`, {
-      position: "top-center",
-      progress: 0,
-      toastId: "upload",
-    });
 
     try {
       const fileInfo = await getBinary(
         esp32Version,
-        binaryUpload.folderBin,
+        binaryUpload.folderContain,
         binaryUpload.fileName
       );
+      if (!fileInfo) {
+        delay(2000);
+        disconnectButtonOnclick();
+        return;
+      }
 
+      console.log("🚀 ~ programOneBinary ~ fileInfo:", fileInfo);
       const contents = await toArrayBuffer(fileInfo);
       let eraseAll = false;
       let offset = "";
@@ -303,6 +312,12 @@ const App = () => {
       } else if (binaryUpload.fileName === "firmware.bin") {
         offset = "0x10000";
       }
+
+      toast(`Uploading version ${binaryUpload.folderContain} ...`, {
+        position: "top-center",
+        progress: 0,
+        toastId: "upload",
+      });
 
       const newFileArray = [];
       newFileArray.push({ data: contents, address: parseInt(offset) });
@@ -330,6 +345,7 @@ const App = () => {
       };
 
       await espInfo.esploader.writeFlash(flashOptions);
+      delay(2000);
       disconnectButtonOnclick();
     } catch (e) {
       console.error(e);
@@ -387,6 +403,76 @@ const App = () => {
       xTerm.clear();
     }
   };
+
+  const renderListDevice = (input) => {
+    return (
+      <Grid
+        container
+        rowSpacing={1}
+        direction="column"
+        justifyContent="flex-start"
+        alignItems="center"
+      >
+        {deviceList.map((device, index) => {
+          return (
+            <Grid
+              item
+              xs={12}
+              key={index}
+              style={{ width: "100%", padding: "8px" }}
+            >
+              <Button
+                variant="outlined"
+                fullWidth
+                onClick={(e) => handleBtnSlectEspVersion(device.chipType)}
+              >
+                <Stack
+                  style={{
+                    display: "flex",
+                    width: "100%",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "flex-start",
+                  }}
+                >
+                  <div
+                    style={{
+                      flex: 1,
+                    }}
+                  >
+                    <StyledBadge
+                      overlap="circular"
+                      anchorOrigin={{
+                        vertical: "bottom",
+                        horizontal: "right",
+                      }}
+                      color={device.isConnected ? "success" : "error"}
+                      variant="dot"
+                    >
+                      <Avatar
+                        alt={index}
+                        src={device.srcImage}
+                        sx={{ width: 50, height: 50 }}
+                      />
+                    </StyledBadge>
+                  </div>
+
+                  <span
+                    style={{
+                      flex: 2,
+                      display: "flex",
+                    }}
+                  >
+                    {device.deviceName + " (" + device.chipType + ")"}
+                  </span>
+                </Stack>
+              </Button>
+            </Grid>
+          );
+        })}
+      </Grid>
+    );
+  };
   return (
     <div
       style={{
@@ -419,73 +505,7 @@ const App = () => {
                 </Typography>
               </CardHeader>
               <CardBody>
-                <Grid
-                  container
-                  rowSpacing={1}
-                  direction="column"
-                  justifyContent="flex-start"
-                  alignItems="center"
-                >
-                  {deviceList.map((device, index) => {
-                    return (
-                      <Grid
-                        item
-                        xs={12}
-                        key={index}
-                        style={{ width: "100%", padding: "8px" }}
-                      >
-                        <Button
-                          variant="outlined"
-                          fullWidth
-                          onClick={(e) =>
-                            handleBtnSlectEspVersion(device.chipType)
-                          }
-                        >
-                          <Stack
-                            style={{
-                              display: "flex",
-                              width: "100%",
-                              flexDirection: "row",
-                              alignItems: "center",
-                              justifyContent: "flex-start",
-                            }}
-                          >
-                            <div
-                              style={{
-                                flex: 1,
-                              }}
-                            >
-                              <StyledBadge
-                                overlap="circular"
-                                anchorOrigin={{
-                                  vertical: "bottom",
-                                  horizontal: "right",
-                                }}
-                                color={device.isConnected ? "success" : "error"}
-                                variant="dot"
-                              >
-                                <Avatar
-                                  alt={index}
-                                  src={device.srcImage}
-                                  sx={{ width: 50, height: 50 }}
-                                />
-                              </StyledBadge>
-                            </div>
-
-                            <span
-                              style={{
-                                flex: 2,
-                                display: "flex",
-                              }}
-                            >
-                              {device.deviceName + " (" + device.chipType + ")"}
-                            </span>
-                          </Stack>
-                        </Button>
-                      </Grid>
-                    );
-                  })}
-                </Grid>
+                {loading ? <CircularProgress /> : renderListDevice(deviceList)}
               </CardBody>
             </Card>
           )}

@@ -123,3 +123,14 @@ export const register = async (
 // Api to get version image
 export const getListEsp32Binary = async (espVersion) =>
   await instance.get(`getListEsp32Binary/${espVersion}`, {});
+
+export const getListDevices = async (espVersion) =>
+  await instance.get(`devices`, {});
+
+export const downloadBinary = async (data) => {
+  const url = configs.WS_BASE_URL + `downloadBinary`;
+  const response = await axios.post(url, data, {
+    responseType: "blob",
+  });
+  return response.data;
+};
