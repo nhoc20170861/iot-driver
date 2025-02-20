@@ -1,0 +1,14 @@
+[
+  {
+    "id": 1,
+    "binaryName": "Mqtt_Version_00_01",
+    "binaryDescription": "Version tích hợp Mqtt ngày 01 tháng 8",
+    "folderBin": "Mqtt_Version_00_01"
+  },
+  {
+    "id": 2,
+    "binaryName": "Mqtt_Version_00_02",
+    "binaryDescription": "Sửa lỗi hiện thị tên cửa hàng",
+    "folderBin": "Mqtt_Version_00_02"
+  }
+]

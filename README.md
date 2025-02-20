@@ -12,9 +12,17 @@ And inspired by [esptool-js](https://github.com/espressif/esptool-js).
 ```sh
 git clone https://github.com/nhoc20170861/iot-driver.git
 cd iot-driver
-npm install
+# Run frontend
+cd frontend & npm install
 npm run
+
+# Run backend
+cd backend
+npm install & npm start:dev
 ```
+> [!NOTE]
+> Before running the server, you need to download your Firbase Credentials as FirebaseService.json
+
 ## Backend
 This project includes a **NodeJS-Express** server to manage binaries, users just need to select the desired binary versions. 
 Then connect to the target board and select flash to load the program.
