@@ -173,6 +173,7 @@ const App = () => {
   }, []);
 
   React.useEffect(() => {
+    if (!supported()) return;
     const terminal = document.getElementById("terminal");
     xTerm.open(terminal);
   }, []);
@@ -196,20 +197,22 @@ const App = () => {
 
   // Connect to ESP & init flasher stuff
 
-  navigator.serial.addEventListener("disconnect", async (event) => {
-    console.log("🚀 ~ navigator.serial.addEventListener ~ disconnect:");
-    if (espInfo.transport) {
-      setEspInfo({
-        device: undefined,
-        transport: undefined,
-        chip: undefined,
-        esploader: undefined,
-      });
-      setConnected(false);
-      setConnecting(false);
-      xTerm.clear();
-    }
-  });
+  if (navigator.serial != null) {
+    navigator.serial.addEventListener("disconnect", async (event) => {
+      console.log("🚀 ~ navigator.serial.addEventListener ~ disconnect:");
+      if (espInfo.transport) {
+        setEspInfo({
+          device: undefined,
+          transport: undefined,
+          chip: undefined,
+          esploader: undefined,
+        });
+        setConnected(false);
+        setConnecting(false);
+        xTerm.clear();
+      }
+    });
+  }
 
   const clickConnect = async () => {
     let newDevice, newTransport, newChip, newEspLoader;
@@ -486,29 +489,34 @@ const App = () => {
       <Header sx={{ mb: "1rem" }} />
       <Grid sx={{ flexGrow: 1 }} container spacing={2}>
         <Grid item xs={4}>
-          {esp32Version != "" ? (
-            <BasicTabs
-              setbinaryUpload={setbinaryUpload}
-              binaryUpload={binaryUpload}
-              esp32Version={esp32Version}
-              setEsp32Version={setEsp32Version}
-            ></BasicTabs>
-          ) : (
-            <Card className="shadow">
-              <CardHeader className="bg-transparent">
-                <Typography
-                  variant="h5"
-                  component="h5"
-                  sx={{ color: "black", paddingLeft: "5px" }}
-                >
-                  Các phiên bản sản phẩm
-                </Typography>
-              </CardHeader>
-              <CardBody>
-                {loading ? <CircularProgress /> : renderListDevice(deviceList)}
-              </CardBody>
-            </Card>
-          )}
+          {/* {supported() 
+          && connected 
+          && ( */
+            esp32Version != "" ? (
+              <BasicTabs
+                setbinaryUpload={setbinaryUpload}
+                binaryUpload={binaryUpload}
+                esp32Version={esp32Version}
+                setEsp32Version={setEsp32Version}
+              ></BasicTabs>
+            ) : (
+              <Card className="shadow">
+                <CardHeader className="bg-transparent">
+                  <Typography
+                    variant="h5"
+                    component="h5"
+                    sx={{ color: "black", paddingLeft: "5px" }}
+                  >
+                    Các phiên bản sản phẩm
+                  </Typography>
+                </CardHeader>
+                <CardBody>
+                  {loading ? <CircularProgress /> : renderListDevice(deviceList)}
+                </CardBody>
+              </Card>
+            )
+          }
+          
         </Grid>
 
         <Grid item xs={8}>

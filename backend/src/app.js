@@ -7,7 +7,7 @@ const app = express();
 const port = 3000;
 const fs = require("fs");
 
-app.use("*", cors());
+app.use(cors());
 
 app.use(express.static(path.join(__dirname, "public")));
 // parse requests of content-type - application/json
