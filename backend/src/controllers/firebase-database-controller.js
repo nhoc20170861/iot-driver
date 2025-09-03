@@ -21,11 +21,12 @@ class FirebaseDatabaseController {
       res.status(500).send({ error: "Error fetching devices from Firestore" });
     }
   };
+
   async getBinaries(req, res) {
     try {
-      const esp32Version = req.params["esp32Version"] || esp32;
-      const esp32Collection = firestore.collection(esp32Version);
-      const snapshot = await esp32Collection.get();
+      const gitBranch = req.params["gitBranch"] || "esp32";
+      const esp32Collection = firestore.collection(gitBranch);
+      const snapshot = await esp32Collection.orderBy("createdAt", "desc").get();
 
       if (snapshot.empty) {
         return res.status(404).send({ message: "No binary versions found" });
@@ -41,6 +42,7 @@ class FirebaseDatabaseController {
           return a.createdAt.nanoseconds - b.createdAt.nanoseconds;
         });
       console.log("🚀 ~ router.get ~ binaries:", binaries);
+
       return res.status(200).send({
         success: true,
         message: "Get image list successfully",

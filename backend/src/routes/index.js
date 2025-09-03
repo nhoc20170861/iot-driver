@@ -18,7 +18,7 @@ router.post("/logout", verifyToken, firebaseAuthController.logoutUser);
 // api for connecting database
 router.post("/downloadBinary", firebaseDatabaseController.downloadBinary);
 router.get(
-  "/getListEsp32Binary/:esp32Version",
+  "/getListEsp32Binary/:gitBranch",
   firebaseDatabaseController.getBinaries
 );
 

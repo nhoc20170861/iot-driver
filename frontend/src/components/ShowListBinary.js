@@ -34,7 +34,7 @@ const ShowListBinary = (props) => {
   React.useEffect(() => {
     if (selectedIndex !== -1) {
       const infoBinary = { ...props.binaryUpload };
-      infoBinary.folderContain = listImage[selectedIndex].folderContain;
+      infoBinary.folderContain = listImage[selectedIndex].ciName || "main";
       console.log("🚀 ~ React.useEffect ~ infoBinary:", infoBinary);
       props.setbinaryUpload(infoBinary);
     } else if (props.currTab === 0) {
@@ -66,7 +66,7 @@ const ShowListBinary = (props) => {
               </ListItemAvatar>
 
               <ListItemText
-                primary={item.binaryName || ""}
+                primary={item.ciName || ""}
                 secondary={item.binaryDescription || ""}
               />
             </ListItemButton>

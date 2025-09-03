@@ -427,7 +427,7 @@ const App = () => {
               <Button
                 variant="outlined"
                 fullWidth
-                onClick={(e) => handleBtnSlectEspVersion(device.chipType)}
+                onClick={(e) => handleBtnSlectEspVersion(device.gitBranch)}
               >
                 <Stack
                   style={{
@@ -441,6 +441,7 @@ const App = () => {
                   <div
                     style={{
                       flex: 1,
+                      width: "40px",
                     }}
                   >
                     <StyledBadge
@@ -453,21 +454,34 @@ const App = () => {
                       variant="dot"
                     >
                       <Avatar
-                        alt={index}
+                        alt={`img${index}`}
                         src={device.srcImage}
                         sx={{ width: 50, height: 50 }}
                       />
                     </StyledBadge>
                   </div>
-
-                  <span
-                    style={{
-                      flex: 2,
-                      display: "flex",
-                    }}
-                  >
-                    {device.deviceName + " (" + device.chipType + ")"}
-                  </span>
+                  <div style={{
+                        flex: 2,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}>
+                    <div
+                      
+                    >
+                      {device.deviceName + " (" + device.chipType + ")"}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "0.8rem",
+                        color: "#555",
+                        textTransform: "none"
+                      }}
+                    >
+                      {`Git branch: ${device.gitBranch}`}
+                    </div>
+                  </div>
                 </Stack>
               </Button>
             </Grid>
@@ -489,34 +503,31 @@ const App = () => {
       <Header sx={{ mb: "1rem" }} />
       <Grid sx={{ flexGrow: 1 }} container spacing={2}>
         <Grid item xs={4}>
-          {/* {supported() 
-          && connected 
-          && ( */
-            esp32Version != "" ? (
-              <BasicTabs
-                setbinaryUpload={setbinaryUpload}
-                binaryUpload={binaryUpload}
-                esp32Version={esp32Version}
-                setEsp32Version={setEsp32Version}
-              ></BasicTabs>
-            ) : (
-              <Card className="shadow">
-                <CardHeader className="bg-transparent">
-                  <Typography
-                    variant="h5"
-                    component="h5"
-                    sx={{ color: "black", paddingLeft: "5px" }}
-                  >
-                    Các phiên bản sản phẩm
-                  </Typography>
-                </CardHeader>
-                <CardBody>
-                  {loading ? <CircularProgress /> : renderListDevice(deviceList)}
-                </CardBody>
-              </Card>
-            )
-          }
-          
+          {supported() && connected && <></>}
+
+          {esp32Version != "" ? (
+            <BasicTabs
+              setbinaryUpload={setbinaryUpload}
+              binaryUpload={binaryUpload}
+              esp32Version={esp32Version}
+              setEsp32Version={setEsp32Version}
+            ></BasicTabs>
+          ) : (
+            <Card className="shadow">
+              <CardHeader className="bg-transparent">
+                <Typography
+                  variant="h5"
+                  component="h5"
+                  sx={{ color: "black", paddingLeft: "5px" }}
+                >
+                  Các phiên bản sản phẩm
+                </Typography>
+              </CardHeader>
+              <CardBody>
+                {loading ? <CircularProgress /> : renderListDevice(deviceList)}
+              </CardBody>
+            </Card>
+          )}
         </Grid>
 
         <Grid item xs={8}>

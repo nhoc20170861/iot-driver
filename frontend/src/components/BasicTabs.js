@@ -97,9 +97,14 @@ export default function BasicTabs({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              flexDirection: "column",
             }}
           >
             Danh sách các version
+            <br/>
+            <div style={{fontSize: "0.75rem", color: "gray", marginTop: "0.7rem"}}>
+            {esp32Version}
+              </div>
           </Typography>
           <ShowListBinary
             setbinaryUpload={setbinaryUpload}
