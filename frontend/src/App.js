@@ -11,12 +11,11 @@ import Home from "./components/Home";
 import Buttons from "./components/Buttons";
 import Settings from "./components/Settings";
 import ConfirmWindow from "./components/ConfirmWindow";
-import axios from "axios";
 import Container from "@mui/material/Container";
 import Avatar from "@mui/material/Avatar";
 import Button from "@mui/material/Button";
 import Badge from "@mui/material/Badge";
-import BasicTabs from "./components/BasicTabs";
+import ListVersions from "./components/ListVersions";
 import Stack from "@mui/material/Stack";
 import CircularProgress from "@mui/material/CircularProgress";
 
@@ -39,7 +38,6 @@ import {
   supported,
 } from "./lib/esp";
 import { loadSettings, defaultSettings } from "./lib/settings";
-import configs from "configs";
 import { getListDevices, downloadBinary } from "network/ApiAxios";
 
 function delay(ms) {
@@ -58,14 +56,16 @@ const resetTransport = async (transport) => {
   });
   await delay(250);
 };
-async function getBinary(esp32Version, folderName, fileName = "target.bin") {
-  const requestBoday = { esp32Version, folderName, fileName };
+
+// Tải binary từ server
+async function getBinary(filePath) {
+  const requestBoday = { filePath };
 
   try {
     const data = await downloadBinary(requestBoday);
     return data;
   } catch (error) {
-    console.log("🚀 ~ getBinary ~ error:", error);
+    console.error("🚀 ~ getBinary ~ error:", error);
     toast.error(`File not found!!!`, {
       position: "top-center",
       toastId: "download_fail",
@@ -137,7 +137,7 @@ const App = () => {
   const [confirmErase, setConfirmErase] = React.useState(false); // Confirm Erase Window
   const [confirmProgram, setConfirmProgram] = React.useState(false); // Confirm Flash Window
   const [flashing, setFlashing] = React.useState(false); // Enable/Disable buttons
-  const [esp32Version, setEsp32Version] = React.useState(""); // Enable/Disable buttons
+  const [branchName, setBranchName] = React.useState(""); // Enable/Disable buttons
 
   const [loading, setLoading] = React.useState(true);
   const [deviceList, setDeviceList] = React.useState([]);
@@ -164,13 +164,20 @@ const App = () => {
   });
 
   const [binaryUpload, setbinaryUpload] = React.useState({
-    folderContain: "",
-    fileName: "target.bin",
+    files: [],
+    boardType: "",
   }); // Uploaded Files
 
   useEffect(() => {
     setSettings(loadSettings());
   }, []);
+
+  useEffect(() => {
+    if (branchName === "") {
+      setbinaryUpload({ files: [], boardType: "" });
+    }
+
+  }, [branchName]);
 
   React.useEffect(() => {
     if (!supported()) return;
@@ -192,7 +199,7 @@ const App = () => {
 
   const handleBtnSlectEspVersion = (key) => {
     const url = location.pathname + key;
-    setEsp32Version(key);
+    setBranchName(key);
   };
 
   // Connect to ESP & init flasher stuff
@@ -269,7 +276,7 @@ const App = () => {
 
     //  let success = false;
     console.log("🚀 ~ programOneBinary ~ binaryUpload:", binaryUpload);
-    if (!binaryUpload.folderContain) {
+    if (!binaryUpload.files || binaryUpload.files.length === 0) {
       toast.error(`Must select version image ...`, {
         position: "top-center",
         toastId: "upload_fail",
@@ -280,58 +287,43 @@ const App = () => {
     }
 
     try {
-      const fileInfo = await getBinary(
-        esp32Version,
-        binaryUpload.folderContain,
-        binaryUpload.fileName
-      );
-      if (!fileInfo) {
-        delay(2000);
-        disconnectButtonOnclick();
-        return;
-      }
-
-      console.log("🚀 ~ programOneBinary ~ fileInfo:", fileInfo);
-      const contents = await toArrayBuffer(fileInfo);
-      let eraseAll = false;
-      let offset = "";
-      if (binaryUpload.fileName === "target.bin") {
-        eraseAll = true;
-        console.log("🚀 ~ programOneBinary ~ eraseAll:", eraseAll);
-        offset = "0x0000";
-
-        toast.warn(`Waiting to Erasing flash before flashing all...`, {
+      // Tạo mảng fileArray cho writeFlash
+      const fileArray = [];
+      for (const file of binaryUpload.files) {
+        toast.info(`Đang tải file ${file.name}...`, {
+          toastId: "download_file",
           position: "top-center",
-          toastId: "notify_erasing",
-          autoClose: 4000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: "light",
         });
-        await espInfo.esploader.eraseFlash();
-      } else if (binaryUpload.fileName === "firmware.bin") {
-        offset = "0x10000";
+        const fileInfo = await getBinary(file.filePath);
+        if (!fileInfo) {
+          await delay(2000);
+          disconnectButtonOnclick();
+          toast.dismiss("download_file");
+          return;
+        }
+        console.log("🚀 ~ programOneBinary ~ fileInfo:", fileInfo);
+        const contents = await toArrayBuffer(fileInfo);
+        fileArray.push({
+          data: contents,
+          address: parseInt(file.offset, 16),
+        });
+        toast.dismiss("download_file");
       }
 
-      toast(`Uploading version ${binaryUpload.folderContain} ...`, {
+      toast(`Uploading...`, {
         position: "top-center",
         progress: 0,
         toastId: "upload",
       });
 
-      const newFileArray = [];
-      newFileArray.push({ data: contents, address: parseInt(offset) });
-
       const flashOptions = {
-        fileArray: newFileArray,
+        fileArray,
         flashSize: "keep",
         flashMode: "keep",
         flashFreq: "keep",
         eraseAll: false,
         compress: true,
+        baudrate: 921600,
         reportProgress: (fileIndex, written, total) => {
           const progress = written / total;
           toast.update("upload", { progress: progress });
@@ -343,12 +335,10 @@ const App = () => {
             });
           }
         },
-        // calculateMD5Hash: (image) =>
-        //   CryptoJS.MD5(CryptoJS.enc.Latin1.parse(image)),
       };
 
       await espInfo.esploader.writeFlash(flashOptions);
-      delay(2000);
+      await delay(2000);
       disconnectButtonOnclick();
     } catch (e) {
       console.error(e);
@@ -460,23 +450,23 @@ const App = () => {
                       />
                     </StyledBadge>
                   </div>
-                  <div style={{
-                        flex: 2,
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}>
-                    <div
-                      
-                    >
+                  <div
+                    style={{
+                      flex: 2,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <div>
                       {device.deviceName + " (" + device.chipType + ")"}
                     </div>
                     <div
                       style={{
                         fontSize: "0.8rem",
                         color: "#555",
-                        textTransform: "none"
+                        textTransform: "none",
                       }}
                     >
                       {`Git branch: ${device.gitBranch}`}
@@ -505,13 +495,13 @@ const App = () => {
         <Grid item xs={4}>
           {supported() && connected && <></>}
 
-          {esp32Version != "" ? (
-            <BasicTabs
+          {(supported() && branchName != "") ? (
+            <ListVersions
               setbinaryUpload={setbinaryUpload}
               binaryUpload={binaryUpload}
-              esp32Version={esp32Version}
-              setEsp32Version={setEsp32Version}
-            ></BasicTabs>
+              branchName={branchName}
+              setBranchName={setBranchName}
+            ></ListVersions>
           ) : (
             <Card className="shadow">
               <CardHeader className="bg-transparent">

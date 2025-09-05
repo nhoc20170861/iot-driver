@@ -55,12 +55,12 @@ class FirebaseDatabaseController {
   }
 
   async downloadBinary(req, res) {
-    const esp32Version = req.body.esp32Version || "esp32";
-    const folderName = req.body.folderName || "default";
-    const fileName = req.body.fileName || "target.bin";
+ 
 
-    const filePath = `${esp32Version}/${folderName}/${fileName}`;
+    const filePath = req.body.filePath || "";
+    console.log("🚀 ~ FirebaseDatabaseController ~ downloadBinary ~ filePath:", filePath)
 
+    const fileName = filePath.split("/").pop() || "download.bin";
     try {
       const file = bucket.file(filePath);
 
