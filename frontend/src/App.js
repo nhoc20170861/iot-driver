@@ -19,7 +19,7 @@ import ListVersions from "./components/ListVersions";
 import Stack from "@mui/material/Stack";
 import CircularProgress from "@mui/material/CircularProgress";
 
-import { Card, CardHeader, CardBody, Row, Col, Media } from "reactstrap";
+import { Card, CardHeader, CardBody } from "reactstrap";
 
 import { styled } from "@mui/material/styles";
 
@@ -38,8 +38,7 @@ import {
   supported,
 } from "./lib/esp";
 import { loadSettings, defaultSettings } from "./lib/settings";
-import { getListDevices, downloadBinary } from "network/ApiAxios";
-
+import { getDevices, downloadBinary } from "network/Firebase";
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -62,7 +61,8 @@ async function getBinary(filePath) {
   const requestBoday = { filePath };
 
   try {
-    const data = await downloadBinary(requestBoday);
+    const data = await downloadBinary(filePath);
+    console.log("🚀 ~ getBinary ~ data:", data)
     return data;
   } catch (error) {
     console.error("🚀 ~ getBinary ~ error:", error);
@@ -145,8 +145,9 @@ const App = () => {
   React.useEffect(() => {
     const fetchData = async () => {
       try {
-        const { data } = await getListDevices();
-        setDeviceList(data.devices);
+        const devices  = await getDevices();
+        console.log("🚀 ~ fetchData ~ data:", devices)
+        setDeviceList(devices);
       } catch (error) {
         console.error(error);
       }
@@ -304,7 +305,7 @@ const App = () => {
         console.log("🚀 ~ programOneBinary ~ fileInfo:", fileInfo);
         const contents = await toArrayBuffer(fileInfo);
         fileArray.push({
-          data: contents,
+          data: fileInfo,
           address: parseInt(file.offset, 16),
         });
         toast.dismiss("download_file");

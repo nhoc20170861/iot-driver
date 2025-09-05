@@ -16,7 +16,7 @@ import ListItemText from "@mui/material/ListItemText";
 import Divider from "@mui/material/Divider";
 import PermMedia from "@mui/icons-material/PermMedia";
 import CircularProgress from "@mui/material/CircularProgress";
-import { getListEsp32Binary } from "network/ApiAxios";
+import { getListVersion } from "network/Firebase";
 
 function CustomTabPanel(props) {
   const { children, value, index, ...other } = props;
@@ -69,9 +69,9 @@ export default function ListVersions({
   React.useEffect(() => {
     const fetchData = async () => {
       try {
-        const { data } = await getListEsp32Binary(branchName);
-        console.log("🚀 ~ fetchData ~ response:", data.binaryEsp32List);
-        setListVersionImage(data.binaryEsp32List);
+        const list = await getListVersion(branchName);
+        console.log("🚀 ~ fetchData ~ response:", list);
+        setListVersionImage(list);
       } catch (error) {
         console.error(error);
       }
