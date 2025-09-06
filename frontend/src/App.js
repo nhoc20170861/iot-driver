@@ -38,7 +38,9 @@ import {
   supported,
 } from "./lib/esp";
 import { loadSettings, defaultSettings } from "./lib/settings";
-import { getDevices, downloadBinary } from "network/Firebase";
+import { getDevices, downloadFirmware } from "network/Firebase";
+import { downloadBinary } from 'network/ApiAxios'
+
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -58,12 +60,14 @@ const resetTransport = async (transport) => {
 
 // Tải binary từ server
 async function getBinary(filePath) {
-  const requestBoday = { filePath };
+  // const requestBoday = { filePath };
 
   try {
-    const data = await downloadBinary(filePath);
-    console.log("🚀 ~ getBinary ~ data:", data)
-    return data;
+    // const data = await downloadBinary(requestBoday);
+    // console.log("🚀 ~ getBinary ~ data:", data)
+
+    const data2 = await downloadFirmware(filePath);
+    return data2;
   } catch (error) {
     console.error("🚀 ~ getBinary ~ error:", error);
     toast.error(`File not found!!!`, {
@@ -145,7 +149,7 @@ const App = () => {
   React.useEffect(() => {
     const fetchData = async () => {
       try {
-        const devices  = await getDevices();
+        const devices = await getDevices();
         console.log("🚀 ~ fetchData ~ data:", devices)
         setDeviceList(devices);
       } catch (error) {
@@ -270,6 +274,8 @@ const App = () => {
     }
   };
 
+
+
   const programOneBinary = async () => {
     xTerm.clear();
     setConfirmProgram(false);
@@ -302,10 +308,10 @@ const App = () => {
           toast.dismiss("download_file");
           return;
         }
-        console.log("🚀 ~ programOneBinary ~ fileInfo:", fileInfo);
-        const contents = await toArrayBuffer(fileInfo);
+  
+        const contents = fileInfo
         fileArray.push({
-          data: fileInfo,
+          data: contents,
           address: parseInt(file.offset, 16),
         });
         toast.dismiss("download_file");

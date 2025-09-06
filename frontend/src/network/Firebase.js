@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, getDocs } from "firebase/firestore";
-import { getStorage, getDownloadURL, ref } from "firebase/storage";
+import { getStorage, getDownloadURL, getBytes, ref } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
@@ -33,18 +33,41 @@ export async function getDevices() {
   return snapshot.docs.map(doc => doc.data());
 }
 
-export async function downloadBinary(filePath) {
+  function uint8ArrayToBinaryString(uint8Array) {
+    let binary = "";
+    const chunkSize = 0x8000; // đọc từng khúc tránh stack overflow
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.subarray(i, i + chunkSize);
+      binary += String.fromCharCode.apply(null, chunk);
+    }
+    return binary;
+  }
+
+export async function downloadFirmware(filePath) {
   try {
     const storage = getStorage();
-    const url = await getDownloadURL(ref(storage, filePath));
+    const fileRef = ref(storage, filePath);
 
-    // Fetch raw binary
+    const url = await getDownloadURL(fileRef);
+
     const response = await fetch(url);
-    if (!response.ok) throw new Error("Failed to fetch binary");
+    if (!response.ok) throw new Error("Failed to fetch file");
 
-    return await response.arrayBuffer(); // Raw binary buffer
+    const blob = await response.blob();
+    
+    // return blob;
+    // ArrayBuffer → Uint8Array
+      const arrayBuffer = await blob.arrayBuffer();
+
+
+    const bytes = new Uint8Array(arrayBuffer);
+
+    // Uint8Array → Binary String (để flash bằng esptool-js)
+    const binaryString = uint8ArrayToBinaryString(bytes);
+
+    return binaryString;
   } catch (error) {
-    console.error("Error fetching binary:", error);
+    console.error("Error downloading firmware:", error);
     return null;
   }
 }
