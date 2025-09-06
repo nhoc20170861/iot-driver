@@ -282,7 +282,7 @@ const App = () => {
     setFlashing(true);
 
     //  let success = false;
-    console.log("🚀 ~ programOneBinary ~ binaryUpload:", binaryUpload);
+
     if (!binaryUpload.files || binaryUpload.files.length === 0) {
       toast.error(`Must select version image ...`, {
         position: "top-center",
@@ -308,7 +308,7 @@ const App = () => {
           toast.dismiss("download_file");
           return;
         }
-  
+
         const contents = fileInfo
         fileArray.push({
           data: contents,
@@ -335,6 +335,7 @@ const App = () => {
           const progress = written / total;
           toast.update("upload", { progress: progress });
           if (progress >= 1) {
+            toast.dismiss("upload"); // Đóng toast "upload"
             toast.success("Done! Reset ESP to run new firmware.", {
               position: "top-center",
               toastId: "uploaded",

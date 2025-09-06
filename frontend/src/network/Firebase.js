@@ -33,39 +33,31 @@ export async function getDevices() {
   return snapshot.docs.map(doc => doc.data());
 }
 
-  function uint8ArrayToBinaryString(uint8Array) {
-    let binary = "";
-    const chunkSize = 0x8000; // đọc từng khúc tránh stack overflow
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.subarray(i, i + chunkSize);
-      binary += String.fromCharCode.apply(null, chunk);
-    }
-    return binary;
+/**
+ * Convert a unsigned 8 bit integer array to byte string.
+ * @param {Uint8Array} u8Array - magic hex number to select ROM.
+ * @returns {string} Return the equivalent string.
+ */
+
+function ui8ToBstr(u8Array) {
+  let bStr = "";
+  for (let i = 0; i < u8Array.length; i++) {
+    bStr += String.fromCharCode(u8Array[i]);
   }
+  return bStr;
+}
 
 export async function downloadFirmware(filePath) {
   try {
     const storage = getStorage();
     const fileRef = ref(storage, filePath);
 
-    const url = await getDownloadURL(fileRef);
+  
 
-    const response = await fetch(url);
-    if (!response.ok) throw new Error("Failed to fetch file");
-
-    const blob = await response.blob();
-    
-    // return blob;
-    // ArrayBuffer → Uint8Array
-      const arrayBuffer = await blob.arrayBuffer();
-
-
-    const bytes = new Uint8Array(arrayBuffer);
-
-    // Uint8Array → Binary String (để flash bằng esptool-js)
-    const binaryString = uint8ArrayToBinaryString(bytes);
-
-    return binaryString;
+    const arrayBuffer = await getBytes(fileRef);   // ⬅️ getBytes trả thẳng Uint8Array
+     const bytes =  new Uint8Array(arrayBuffer);
+   
+    return ui8ToBstr(bytes)
   } catch (error) {
     console.error("Error downloading firmware:", error);
     return null;
